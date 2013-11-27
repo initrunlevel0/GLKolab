@@ -29,6 +29,7 @@ class BezierCurve(DrawObject):
 		c_vertex = ((ctypes.c_float * 3) * len(self.vertex)) (*self.vertex)
 		glMap1f(GL_MAP1_VERTEX_3, 0.0, 100.0, 3, len(self.vertex), c_vertex[0])
 		glEnable(GL_MAP1_VERTEX_3)
+		glLineWidth(5.0)
 		glBegin(GL_LINE_STRIP)
 		for i in range(0, self.curvePrecision):
 			glEvalCoord1f(i)
@@ -77,8 +78,7 @@ def drawAll(drawObject):
 	
 @window.event
 def on_draw():
-	glLoadIdentity()
-	glColor3f(1.0, 1.0, 1.0)
+	pass
 
 @window.event
 def on_mouse_motion(x, y, dx, dy):
@@ -112,7 +112,13 @@ def on_mouse_press(x, y, button, modifiers):
 			drawedObject.selected = False
 
 
+glLoadIdentity
+glClearColor(1.0, 1.0, 1.0, 0.0)
+glClear(GL_COLOR_BUFFER_BIT)
+glColor3f(0.0, 0.0, 0.0)
 pyglet.app.run()
+	
+
 
 
 
