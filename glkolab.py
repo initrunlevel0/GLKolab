@@ -19,7 +19,7 @@ toolLabel = {}
 userLoginLabel = {}
 
 canvasDrawObject = []
-selected_color = [1.0, 1.0, 1.0]
+selected_color = (1.0, 1.0, 1.0)
 state = "None"
 selected_tool = "Select"
 RANGE_VERTEX = 10
@@ -173,7 +173,7 @@ class Pencil(VertexedObject):
 
 		if (state == "Selecting") and (self.selected == True):
 			self.draw_selected()
-		
+			self.draw_corner_point()	
 		glFlush()
 	def __init__(self, firstX, firstY):
 		global state
@@ -474,85 +474,100 @@ def on_mouse_release(x, y, button, modifiers):
 
 @window.event
 def on_mouse_press(x, y, button, modifiers):
-	global state, selected_tool
-	if(button == pyglet.window.mouse.LEFT):  
-		# If first poin clicked (ONLY FOR POLYGON)
-		if(selected_tool.endswith("P") and state == "Drawing"):
-			# If your mouse cursor near that, add last vertex with first point and done!
-			first_point = drawedObject.vertex[0]
-			if(x >= first_point[0] - RANGE_VERTEX and x <= first_point[0] + RANGE_VERTEX and y >= first_point[1] - RANGE_VERTEX and y <= first_point[1] + RANGE_VERTEX):
-				drawedObject.vertex.append(first_point)
+	global state, selected_tool, selected_color
+	# Toolbox or Canvas?
+	if(x > 200):
+		if(button == pyglet.window.mouse.LEFT):  
+			# If first poin clicked (ONLY FOR POLYGON)
+			if(selected_tool.endswith("P") and state == "Drawing"):
+				# If your mouse cursor near that, add last vertex with first point and done!
+				first_point = drawedObject.vertex[0]
+				if(x >= first_point[0] - RANGE_VERTEX and x <= first_point[0] + RANGE_VERTEX and y >= first_point[1] - RANGE_VERTEX and y <= first_point[1] + RANGE_VERTEX):
+					drawedObject.vertex.append(first_point)
+					state = "None"
+					drawedObject.selected = False
+					return
+						
+			if(selected_tool == "Select" or selected_tool == "Vertex"):
+				getSelectedObject(x, y)
+			elif(selected_tool == "Pencil"):
+				# Just A DOT of drawing
+				drawPencil(x, y)
+				pass
+			elif(selected_tool.startswith("Curve")): 
+				if(state == "None"):
+					drawBezierCurve(x, y, False)
+					
+				if(state == "Drawing"):
+					drawedObject.vertex.append((x, y, 0.0))
+			elif(selected_tool.startswith("Line")):
+				if(state == "None"):
+					drawLine(x, y, False)
+							
+				if(state == "Drawing"):
+					drawedObject.vertex.append((x, y, 0.0))
+			
+
+		elif(button == pyglet.window.mouse.RIGHT):  # End Drawing
+			if(state == "Drawing"):
 				state = "None"
 				drawedObject.selected = False
-				return
-					
-		if(selected_tool == "Select" or selected_tool == "Vertex"):
-			getSelectedObject(x, y)
-		elif(selected_tool == "Pencil"):
-			# Just A DOT of drawing
-			drawPencil(x, y)
-			pass
-		elif(selected_tool.startswith("Curve")): 
-			if(state == "None"):
-				drawBezierCurve(x, y, False)
-				
-			if(state == "Drawing"):
-				drawedObject.vertex.append((x, y, 0.0))
-		elif(selected_tool.startswith("Line")):
-			if(state == "None"):
-				drawLine(x, y, False)
-						
-			if(state == "Drawing"):
-				drawedObject.vertex.append((x, y, 0.0))
+	else:
+		# This is toolbox
+		# Tool selection part
+		if y <= 500 and y > 480 :
+			if(selected_tool != "Vertex"):
+				doUnselectObject()
+			selected_tool = "Select"
+		elif y <= 480 and y > 460:          
+			if(selected_tool != "Select"):
+				doUnselectObject()
+			selected_tool = "Vertex"
+		elif y <= 460 and y > 440:
+			doUnselectObject()
+			selected_tool = "Pencil"
+		elif y <= 440 and y > 420:
+			doUnselectObject()
+			selected_tool = "Line"
+		elif y <= 420 and y > 400:
+			doUnselectObject()
+			selected_tool = "Curve"
+		elif y <= 400 and y > 380: 
+			doUnselectObject()
+			selected_tool = "Line P"
+		elif y <= 380 and y > 360:
+			doUnselectObject()
+			selected_tool = "Curve P"
+		elif y <= 360 and y > 340:
+			doUnselectObject()
+			selected_tool = "Text"
+			
+		# Color selection part (280 to 240)
+		if x >= 0 and x < 50 and y >= 260 and y < 280:
+			selected_color = color[0]
+		elif x >= 50 and x < 100 and y >= 260 and y < 280:
+			selected_color = color[1]
+		elif x >= 100 and x < 150 and y >= 260 and y < 280:
+			selected_color = color[2]
+		elif x >= 150 and x < 200 and y >= 260 and y < 280:
+			selected_color = color[3]
+		if x >= 0 and x < 50 and y >= 240 and y < 260:
+			selected_color = color[4]
+		elif x >= 50 and x < 100 and y >= 240 and y < 260:
+			selected_color = color[5]
+		elif x >= 100 and x < 150 and y >= 240 and y < 260:
+			selected_color = color[6]
+		elif x >= 150 and x < 200 and y >= 240 and y < 260:
+			selected_color = color[7]
 		
-
-	elif(button == pyglet.window.mouse.RIGHT):  # End Drawing
-		if(state == "Drawing"):
-			state = "None"
-			drawedObject.selected = False
-
 @window.event
 def on_key_press(symbol, modifiers):
-	global selected_tool, state, drawedObject
-	
-	
-	if symbol == pyglet.window.key._1:
-		if(selected_tool != "Vertex"):
-			doUnselectObject()
-		selected_tool = "Select"
-	elif symbol == pyglet.window.key._2:
-		if(selected_tool != "Select"):
-			doUnselectObject()
-		selected_tool = "Vertex"
-	elif symbol == pyglet.window.key._3:
-		doUnselectObject()
-		selected_tool = "Pencil"
-	elif symbol == pyglet.window.key._4:
-		doUnselectObject()
-		selected_tool = "Line"
-	elif symbol == pyglet.window.key._5:
-		doUnselectObject()
-		selected_tool = "Curve"
-	elif symbol == pyglet.window.key._6:
-		doUnselectObject()
-		selected_tool = "Line P"
-	elif symbol == pyglet.window.key._7:
-		doUnselectObject()
-		selected_tool = "Curve P"
-	elif symbol == pyglet.window.key._8:
-		doUnselectObject()
-		selected_tool = "Text"
-	elif symbol == pyglet.window.key.DELETE:
+	if symbol == pyglet.window.key.DELETE:
 		# Delete Object
 		if(selected_tool == "Select" and drawedObject != -1):
 			canvasDrawObject.remove(drawedObject)
 		elif(selected_tool == "Vertex" and drawedObject != -1 and selected_point != (0,0,0)):
 			drawedObject.vertex.remove(selected_point)
-			
-			
-	
-	print "Selected " + selected_tool
-
 @window.event
 def on_draw():
 	redrawAll()
