@@ -135,6 +135,7 @@ class BezierCurve(VertexedObject):
 		glMap1f(GL_MAP1_VERTEX_3, 0.0, 100.0, 3, len(self.vertex), c_vertex[0])
 		glEnable(GL_MAP1_VERTEX_3)
 		glLineWidth(2.0)
+		glColor3f(self.color[0], self.color[1], self.color[2])
 		glBegin(GL_LINE_STRIP)
 		for i in range(0, self.curvePrecision):
 			glEvalCoord1f(i)
@@ -153,12 +154,13 @@ class BezierCurve(VertexedObject):
 			else:
 				self.draw_corner_point()
 		glFlush()
-	def __init__(self, firstX, firstY, isPolygon):
+	def __init__(self, firstX, firstY, isPolygon, color):
 		global state
 		VertexedObject.__init__(self)
 		
 		self.vertex = []
 		self.isPolygon = isPolygon
+		self.color = color
 		
 		# Define first curve
 		self.vertex.append((firstX, firstY, 0.0))
@@ -166,6 +168,7 @@ class BezierCurve(VertexedObject):
 class Pencil(VertexedObject):
 	def draw(self):
 		glLineWidth(2.0)
+		glColor3f(self.color[0], self.color[1], self.color[2])
 		glBegin(GL_LINE_STRIP)
 		for v in self.vertex:
 			glVertex3f(v[0], v[1], 0.0)
@@ -175,12 +178,13 @@ class Pencil(VertexedObject):
 			self.draw_selected()
 			self.draw_corner_point()	
 		glFlush()
-	def __init__(self, firstX, firstY):
+	def __init__(self, firstX, firstY, color):
 		global state
 		VertexedObject.__init__(self)
 		self.vertex = []
 		self.selected = False
-		
+		self.color = color
+
 		# Define first curve
 		self.vertex.append((firstX, firstY, 0.0))
 
@@ -188,7 +192,11 @@ class Line(VertexedObject):
 	def draw(self):
 		# Draw only its line curve
 		glLineWidth(2.0)
-		glBegin(GL_LINE_STRIP)
+		glColor3f(self.color[0], self.color[1], self.color[2])
+		if(self.isPolygon):
+			glBegin(GL_POLYGON)
+		else:
+			glBegin(GL_LINE_STRIP)
 		for v in self.vertex:
 			glVertex3f(v[0], v[1], 0.0)
 		glEnd()
@@ -206,11 +214,12 @@ class Line(VertexedObject):
 			else:
 				self.draw_corner_point()
 		glFlush()
-	def __init__(self, firstX, firstY, isPolygon):
+	def __init__(self, firstX, firstY, isPolygon, color):
 		global state
 		VertexedObject.__init__(self)
 		self.selected = False
 		self.isPolygon = isPolygon
+		self.color = color
 	
 		# Define first curve
 		self.vertex.append((firstX, firstY, 0.0))
@@ -237,6 +246,8 @@ def getSelectedObject(X, Y):
 			state = "None"
 				
 def doUnselectObject():
+	global state
+
 	# Tools changing
 	if('drawedObject' in globals()):
 		if(drawedObject != -1):
@@ -288,7 +299,7 @@ def doMoveVertex(index, x, y):
 			
 def drawBezierCurve(firstX, firstY, isPolygon):
 	global drawedObject, state
-	bc = BezierCurve(firstX, firstY, isPolygon)
+	bc = BezierCurve(firstX, firstY, isPolygon, selected_color)
 	canvasDrawObject.append(bc)
 	drawedObject = bc
 	bc.selected = True
@@ -297,7 +308,7 @@ def drawBezierCurve(firstX, firstY, isPolygon):
 	
 def drawPencil(firstX, firstY):
 	global drawedObject, state
-	p = Pencil(firstX, firstY)
+	p = Pencil(firstX, firstY, selected_color)
 	canvasDrawObject.append(p)
 	drawedObject = p
 	p.selected = True
@@ -307,7 +318,7 @@ def drawPencil(firstX, firstY):
 
 def drawLine(firstX, firstY, isPolygon):
 	global drawedObject, state
-	l = Line(firstX, firstY, isPolygon)
+	l = Line(firstX, firstY, isPolygon, selected_color)
 	canvasDrawObject.append(l)
 	drawedObject = l
 	l.selected = True
@@ -454,9 +465,9 @@ def on_mouse_drag(x, y, dx, dy, button, modifiers):
 							selected_point = (x, y, 0.0)
 
 		elif(selected_tool == "Pencil"):
-			drawedObject.vertex.append((x, y, 0.0))
-			redrawCanvas()
-			pass
+			if(drawedObject != -1):
+				drawedObject.vertex.append((x, y, 0.0))
+				redrawCanvas()
 		elif(selected_tool == "Curve"): 
 			pass
 
@@ -475,6 +486,7 @@ def on_mouse_release(x, y, button, modifiers):
 @window.event
 def on_mouse_press(x, y, button, modifiers):
 	global state, selected_tool, selected_color
+	print str(x)
 	# Toolbox or Canvas?
 	if(x > 200):
 		if(button == pyglet.window.mouse.LEFT):  
@@ -487,7 +499,6 @@ def on_mouse_press(x, y, button, modifiers):
 					state = "None"
 					drawedObject.selected = False
 					return
-						
 			if(selected_tool == "Select" or selected_tool == "Vertex"):
 				getSelectedObject(x, y)
 			elif(selected_tool == "Pencil"):
@@ -496,13 +507,13 @@ def on_mouse_press(x, y, button, modifiers):
 				pass
 			elif(selected_tool.startswith("Curve")): 
 				if(state == "None"):
-					drawBezierCurve(x, y, False)
+					drawBezierCurve(x, y, selected_tool.endswith("P"))
 					
 				if(state == "Drawing"):
 					drawedObject.vertex.append((x, y, 0.0))
 			elif(selected_tool.startswith("Line")):
 				if(state == "None"):
-					drawLine(x, y, False)
+					drawLine(x, y, selected_tool.endswith("P"))
 							
 				if(state == "Drawing"):
 					drawedObject.vertex.append((x, y, 0.0))
