@@ -1,9 +1,9 @@
 #!/usr/bin/python
 
-# BezierDraw
+# MoreTools: Selector, Line, Pencil
 # Part of GLKolab Project Scaffolding
 
-# Putu Wiramaswara Widya <initrunlevel0@gmail.com
+# Putu Wiramaswara Widya <initrunlevel0@gmail.com>
 # http://github.com/initrunlevel0/GLKolab
 
 import ctypes
@@ -421,6 +421,10 @@ def on_key_press(symbol, modifiers):
 		tool = "Text Tool"
 	
 	print "Selected " + tool
+@window.event
+def on_draw():
+	global window
+	window.flip()
 
 ### MAIN FUNCTION
 glLoadIdentity

@@ -1,3 +1,4 @@
+#!/usr/bin/python
 # GLKolab: OpenGL based 2D Whiteboard System
 
 # Putu Wiramaswara Widya <initrunlevel0@gmail.com>
@@ -21,8 +22,9 @@ canvasDrawObject = []
 selected_color = [1.0, 1.0, 1.0]
 state = "None"
 selected_tool = "Select"
-
-
+RANGE_VERTEX = 10
+resizing = False
+selected_point = (0,0,0)
 
 ### DRAWING CLASS DEFINITION
 class DrawObject:
@@ -84,6 +86,20 @@ class VertexedObject(DrawObject):
 		glVertex3f(self.get_far_left(), self.get_far_bottom(), 0.0)
 		glEnd()
 
+	def draw_vertex(self):
+		global selected_point
+		# Draw dot for every vertex
+		for v in self.vertex:
+			glPointSize(10.0)
+			if(selected_point == v):
+				glColor3f(1.0, 0.0, 0.0)
+			else:
+				glColor3f(0.0, 0.0, 0.0)
+			glBegin(GL_POINTS)
+			glVertex3f(v[0], v[1], 0.0)
+			glEnd()
+
+	def draw_corner_point(self):
 		# Draw mini point for every corner
 		glPointSize(10.0)
 		
@@ -106,8 +122,7 @@ class VertexedObject(DrawObject):
 		glBegin(GL_POINTS)
 		glVertex3f(self.get_far_left(), self.get_far_bottom(), 0.0)
 		glEnd()
-
-				
+		
 	def __init__(self):
 		self.vertex = []
 	
@@ -128,24 +143,22 @@ class BezierCurve(VertexedObject):
 		if state == "None":
 			pass
 			
-		elif (state == "Drawing") and (self.selected == True):
-			
-			# Draw dot for every vertex
-			for v in self.vertex:
-				glPointSize(10.0)
-				glBegin(GL_POINTS)
-				glVertex3f(v[0], v[1], 0.0)
-				glEnd()
-			pass
 		
+		elif (state == "Drawing") and (self.selected == True):
+			self.draw_vertex()	
 		elif (state == "Selecting") and (self.selected == True):
 			self.draw_selected()
+			if selected_tool == "Vertex":
+				self.draw_vertex()
+			else:
+				self.draw_corner_point()
 		glFlush()
 	def __init__(self, firstX, firstY, isPolygon):
 		global state
 		VertexedObject.__init__(self)
 		
 		self.vertex = []
+		self.isPolygon = isPolygon
 		
 		# Define first curve
 		self.vertex.append((firstX, firstY, 0.0))
@@ -184,28 +197,27 @@ class Line(VertexedObject):
 			pass
 			
 		elif (state == "Drawing") and (self.selected == True):
-			
-			# Draw dot for every vertex
-			for v in self.vertex:
-				glPointSize(10.0)
-				glBegin(GL_POINTS)
-				glVertex3f(v[0], v[1], 0.0)
-				glEnd()
+			self.draw_vertex()	
 		elif (state == "Selecting") and (self.selected == True):
 			self.draw_selected()
-		
+
+			if selected_tool == "Vertex":
+				self.draw_vertex()
+			else:
+				self.draw_corner_point()
 		glFlush()
 	def __init__(self, firstX, firstY, isPolygon):
 		global state
 		VertexedObject.__init__(self)
 		self.selected = False
-		
+		self.isPolygon = isPolygon
+	
 		# Define first curve
 		self.vertex.append((firstX, firstY, 0.0))
 		
 ### DO DRAWING PRIMITIVE
 def getSelectedObject(X, Y):
-	global state, drawedObject
+	global state, drawedObject, selected_point
 	# Clear All Selection First
 	drawedObject = -1
 	for obj in canvasDrawObject:
@@ -215,15 +227,22 @@ def getSelectedObject(X, Y):
 	for obj in canvasDrawObject:
 		if(obj.get_far_left() <= X and obj.get_far_right() >= X and obj.get_far_top() >= Y and obj.get_far_bottom() <= Y):
 			state = "Selecting"
-			print "Selecting on " + str(X) + " " + str(Y)	
 			drawedObject = obj
 			obj.selected = True
 			break
 		else:
+			selected_point = (0, 0, 0)
 			obj.selected = False
 			drawedObject = -1
 			state = "None"
 				
+def doUnselectObject():
+	# Tools changing
+	if('drawedObject' in globals()):
+		if(drawedObject != -1):
+			drawedObject.selected = False
+	state = "None"
+
 def doMovement(dX, dY):
 	if(drawedObject != -1):
 		for i in range(len(drawedObject.vertex)):
@@ -262,6 +281,10 @@ def doResize(dX, dY, side):
 					drawedObject.vertex[i] = (drawedObject.vertex[i][0], drawedObject.vertex[i][1] + dY, 0.0)
 				elif(drawedObject.vertex[i][1] == drawedObject.get_far_top() and drawedObject.vertex[i][0] != drawedObject.get_far_right()):
 					drawedObject.vertex[i] = (drawedObject.vertex[i][0] + dX, drawedObject.vertex[i][1], 0.0)
+
+def doMoveVertex(index, x, y):
+	if(drawedObject != -1):
+		drawedObject.vertex[index] = (x, y, 0.0)
 			
 def drawBezierCurve(firstX, firstY, isPolygon):
 	global drawedObject, state
@@ -388,13 +411,13 @@ def drawAll(drawObject):
 ### EVENT HANDLER	
 @window.event
 def on_mouse_motion(x, y, dx, dy):
-	if(selected_tool == "Curve"):
+	if(selected_tool.startswith("Curve")):
 		if(state == "Drawing"):
 			drawedObject.vertex.pop()
 			drawedObject.vertex.append((x, y, 0.0))
 			
 			redrawCanvas()
-	elif(selected_tool == "Line"):
+	elif(selected_tool.startswith("Line")):
 		if(state == "Drawing"):
 			drawedObject.vertex.pop()
 			drawedObject.vertex.append((x, y, 0.0))
@@ -403,26 +426,33 @@ def on_mouse_motion(x, y, dx, dy):
 
 @window.event
 def on_mouse_drag(x, y, dx, dy, button, modifiers):
-	global state
-	resizing = False
+	global state, resizing, selected_point
 	if(button == pyglet.window.mouse.LEFT):
 		if(selected_tool == "Select"):
 			if(state == "Selecting"):
 				if(drawedObject != -1):
-					if(x in range(drawedObject.get_far_left()-20, drawedObject.get_far_left()+20) and y in range(drawedObject.get_far_top()-20, drawedObject.get_far_top()+20)):
+					if(x in range(drawedObject.get_far_left()-RANGE_VERTEX, drawedObject.get_far_left()+RANGE_VERTEX) and y in range(drawedObject.get_far_top()-RANGE_VERTEX, drawedObject.get_far_top()+RANGE_VERTEX)):
 						doResize(dx, dy, "TopLeft")
 						resizing = True	
-					elif(x in range(drawedObject.get_far_right()-20, drawedObject.get_far_right()+20) and y in range(drawedObject.get_far_top()-20, drawedObject.get_far_top()+20)):
+					elif(x in range(drawedObject.get_far_right()-RANGE_VERTEX, drawedObject.get_far_right()+RANGE_VERTEX) and y in range(drawedObject.get_far_top()-RANGE_VERTEX, drawedObject.get_far_top()+RANGE_VERTEX)):
 						doResize(dx, dy, "TopRight")
 						resizing = True
-					elif(x in range(drawedObject.get_far_right()-20, drawedObject.get_far_right()+20) and y in range(drawedObject.get_far_bottom()-20, drawedObject.get_far_bottom()+20)):
+					elif(x in range(drawedObject.get_far_right()-RANGE_VERTEX, drawedObject.get_far_right()+RANGE_VERTEX) and y in range(drawedObject.get_far_bottom()-RANGE_VERTEX, drawedObject.get_far_bottom()+RANGE_VERTEX)):
 						doResize(dx, dy, "BottomRight")
 						resizing = True
-					elif(x in range(drawedObject.get_far_left()-20, drawedObject.get_far_left()+20) and y in range(drawedObject.get_far_bottom()-20, drawedObject.get_far_bottom()+20)):
+					elif(x in range(drawedObject.get_far_left()-RANGE_VERTEX, drawedObject.get_far_left()+RANGE_VERTEX) and y in range(drawedObject.get_far_bottom()-RANGE_VERTEX, drawedObject.get_far_bottom()+RANGE_VERTEX)):
 						doResize(dx, dy, "BottomLeft")
 						resizing = True
 					elif(resizing == False):
 						doMovement(dx, dy)		
+		elif(selected_tool == "Vertex"):
+			if(state == "Selecting"):
+				if(drawedObject != -1):
+					for v in drawedObject.vertex:
+						if(x >= v[0] - RANGE_VERTEX and x <= v[0] + RANGE_VERTEX and y >= v[1] - RANGE_VERTEX and y <= v[1] + RANGE_VERTEX):
+							doMoveVertex(drawedObject.vertex.index(v), x, y)
+							selected_point = (x, y, 0.0)
+
 		elif(selected_tool == "Pencil"):
 			drawedObject.vertex.append((x, y, 0.0))
 			redrawCanvas()
@@ -432,6 +462,8 @@ def on_mouse_drag(x, y, dx, dy, button, modifiers):
 
 @window.event
 def on_mouse_release(x, y, button, modifiers):
+	global resizing
+	resizing = False
 	if(selected_tool == "Select"):
 		pass
 	elif(selected_tool == "Pencil"):
@@ -444,26 +476,36 @@ def on_mouse_release(x, y, button, modifiers):
 def on_mouse_press(x, y, button, modifiers):
 	global state, selected_tool
 	if(button == pyglet.window.mouse.LEFT):  
-		# From what tools
-		if(selected_tool == "Select"):
+		# If first poin clicked (ONLY FOR POLYGON)
+		if(selected_tool.endswith("P") and state == "Drawing"):
+			# If your mouse cursor near that, add last vertex with first point and done!
+			first_point = drawedObject.vertex[0]
+			if(x >= first_point[0] - RANGE_VERTEX and x <= first_point[0] + RANGE_VERTEX and y >= first_point[1] - RANGE_VERTEX and y <= first_point[1] + RANGE_VERTEX):
+				drawedObject.vertex.append(first_point)
+				state = "None"
+				drawedObject.selected = False
+				return
+					
+		if(selected_tool == "Select" or selected_tool == "Vertex"):
 			getSelectedObject(x, y)
 		elif(selected_tool == "Pencil"):
 			# Just A DOT of drawing
 			drawPencil(x, y)
 			pass
-		elif(selected_tool == "Curve"): 
+		elif(selected_tool.startswith("Curve")): 
 			if(state == "None"):
 				drawBezierCurve(x, y, False)
 				
 			if(state == "Drawing"):
 				drawedObject.vertex.append((x, y, 0.0))
-		elif(selected_tool == "Line"):
+		elif(selected_tool.startswith("Line")):
 			if(state == "None"):
 				drawLine(x, y, False)
-				
+						
 			if(state == "Drawing"):
 				drawedObject.vertex.append((x, y, 0.0))
-						
+		
+
 	elif(button == pyglet.window.mouse.RIGHT):  # End Drawing
 		if(state == "Drawing"):
 			state = "None"
@@ -473,28 +515,41 @@ def on_mouse_press(x, y, button, modifiers):
 def on_key_press(symbol, modifiers):
 	global selected_tool, state, drawedObject
 	
-	# Tools changing
-	if('drawedObject' in globals()):
-		if(drawedObject != -1):
-			drawedObject.selected = False
-	state = "None"
 	
 	if symbol == pyglet.window.key._1:
+		if(selected_tool != "Vertex"):
+			doUnselectObject()
 		selected_tool = "Select"
 	elif symbol == pyglet.window.key._2:
+		if(selected_tool != "Select"):
+			doUnselectObject()
 		selected_tool = "Vertex"
 	elif symbol == pyglet.window.key._3:
+		doUnselectObject()
 		selected_tool = "Pencil"
 	elif symbol == pyglet.window.key._4:
+		doUnselectObject()
 		selected_tool = "Line"
 	elif symbol == pyglet.window.key._5:
+		doUnselectObject()
 		selected_tool = "Curve"
 	elif symbol == pyglet.window.key._6:
+		doUnselectObject()
 		selected_tool = "Line P"
 	elif symbol == pyglet.window.key._7:
+		doUnselectObject()
 		selected_tool = "Curve P"
 	elif symbol == pyglet.window.key._8:
+		doUnselectObject()
 		selected_tool = "Text"
+	elif symbol == pyglet.window.key.DELETE:
+		# Delete Object
+		if(selected_tool == "Select" and drawedObject != -1):
+			canvasDrawObject.remove(drawedObject)
+		elif(selected_tool == "Vertex" and drawedObject != -1 and selected_point != (0,0,0)):
+			drawedObject.vertex.remove(selected_point)
+			
+			
 	
 	print "Selected " + selected_tool
 
