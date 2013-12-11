@@ -19,7 +19,7 @@ toolLabel = {}
 userLoginLabel = {}
 
 canvasDrawObject = []
-selected_color = (1.0, 1.0, 1.0)
+selected_color = (0.0, 0.0, 0.0)
 state = "None"
 selected_tool = "Select"
 RANGE_VERTEX = 10
@@ -136,7 +136,10 @@ class BezierCurve(VertexedObject):
 		glEnable(GL_MAP1_VERTEX_3)
 		glLineWidth(2.0)
 		glColor3f(self.color[0], self.color[1], self.color[2])
-		glBegin(GL_LINE_STRIP)
+		if (self.isPolygon):
+			glBegin(GL_POLYGON)
+		else:
+			glBegin(GL_LINE_STRIP)
 		for i in range(0, self.curvePrecision):
 			glEvalCoord1f(i)
 		glEnd()
@@ -438,39 +441,42 @@ def on_mouse_motion(x, y, dx, dy):
 @window.event
 def on_mouse_drag(x, y, dx, dy, button, modifiers):
 	global state, resizing, selected_point
-	if(button == pyglet.window.mouse.LEFT):
-		if(selected_tool == "Select"):
-			if(state == "Selecting"):
-				if(drawedObject != -1):
-					if(x in range(drawedObject.get_far_left()-RANGE_VERTEX, drawedObject.get_far_left()+RANGE_VERTEX) and y in range(drawedObject.get_far_top()-RANGE_VERTEX, drawedObject.get_far_top()+RANGE_VERTEX)):
-						doResize(dx, dy, "TopLeft")
-						resizing = True	
-					elif(x in range(drawedObject.get_far_right()-RANGE_VERTEX, drawedObject.get_far_right()+RANGE_VERTEX) and y in range(drawedObject.get_far_top()-RANGE_VERTEX, drawedObject.get_far_top()+RANGE_VERTEX)):
-						doResize(dx, dy, "TopRight")
-						resizing = True
-					elif(x in range(drawedObject.get_far_right()-RANGE_VERTEX, drawedObject.get_far_right()+RANGE_VERTEX) and y in range(drawedObject.get_far_bottom()-RANGE_VERTEX, drawedObject.get_far_bottom()+RANGE_VERTEX)):
-						doResize(dx, dy, "BottomRight")
-						resizing = True
-					elif(x in range(drawedObject.get_far_left()-RANGE_VERTEX, drawedObject.get_far_left()+RANGE_VERTEX) and y in range(drawedObject.get_far_bottom()-RANGE_VERTEX, drawedObject.get_far_bottom()+RANGE_VERTEX)):
-						doResize(dx, dy, "BottomLeft")
-						resizing = True
-					elif(resizing == False):
-						doMovement(dx, dy)		
-		elif(selected_tool == "Vertex"):
-			if(state == "Selecting"):
-				if(drawedObject != -1):
-					for v in drawedObject.vertex:
-						if(x >= v[0] - RANGE_VERTEX and x <= v[0] + RANGE_VERTEX and y >= v[1] - RANGE_VERTEX and y <= v[1] + RANGE_VERTEX):
-							doMoveVertex(drawedObject.vertex.index(v), x, y)
-							selected_point = (x, y, 0.0)
+	if(x > 200):
+		if(button == pyglet.window.mouse.LEFT and "drawedObject" in globals()):
+			if(selected_tool == "Select"):
+				if(state == "Selecting"):
+					if(drawedObject != -1):
+						if(x in range(drawedObject.get_far_left()-RANGE_VERTEX, drawedObject.get_far_left()+RANGE_VERTEX) and y in range(drawedObject.get_far_top()-RANGE_VERTEX, drawedObject.get_far_top()+RANGE_VERTEX)):
+							doResize(dx, dy, "TopLeft")
+							resizing = True	
+						elif(x in range(drawedObject.get_far_right()-RANGE_VERTEX, drawedObject.get_far_right()+RANGE_VERTEX) and y in range(drawedObject.get_far_top()-RANGE_VERTEX, drawedObject.get_far_top()+RANGE_VERTEX)):
+							doResize(dx, dy, "TopRight")
+							resizing = True
+						elif(x in range(drawedObject.get_far_right()-RANGE_VERTEX, drawedObject.get_far_right()+RANGE_VERTEX) and y in range(drawedObject.get_far_bottom()-RANGE_VERTEX, drawedObject.get_far_bottom()+RANGE_VERTEX)):
+							doResize(dx, dy, "BottomRight")
+							resizing = True
+						elif(x in range(drawedObject.get_far_left()-RANGE_VERTEX, drawedObject.get_far_left()+RANGE_VERTEX) and y in range(drawedObject.get_far_bottom()-RANGE_VERTEX, drawedObject.get_far_bottom()+RANGE_VERTEX)):
+							doResize(dx, dy, "BottomLeft")
+							resizing = True
+						elif(resizing == False):
+							doMovement(dx, dy)		
+			elif(selected_tool == "Vertex"):
+				if(state == "Selecting"):
+					if(drawedObject != -1):
+						for v in drawedObject.vertex:
+							if(x >= v[0] - RANGE_VERTEX and x <= v[0] + RANGE_VERTEX and y >= v[1] - RANGE_VERTEX and y <= v[1] + RANGE_VERTEX):
+								doMoveVertex(drawedObject.vertex.index(v), x, y)
+								selected_point = (x, y, 0.0)
 
-		elif(selected_tool == "Pencil"):
-			if(drawedObject != -1):
-				drawedObject.vertex.append((x, y, 0.0))
-				redrawCanvas()
-		elif(selected_tool == "Curve"): 
-			pass
-
+			elif(selected_tool == "Pencil"):
+				if(drawedObject != -1):
+					drawedObject.vertex.append((x, y, 0.0))
+					redrawCanvas()
+			elif(selected_tool == "Curve"): 
+				pass
+	else:
+		# Anggap sebagai klik
+		on_mouse_release(x, y, button, modifiers)
 @window.event
 def on_mouse_release(x, y, button, modifiers):
 	global resizing
