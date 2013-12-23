@@ -12,6 +12,7 @@ from thread import *
 # Global Variable
 user = {}
 commandStack = []
+drawObject = []
 
 # Handle multi connection
 HOST = ''                 # Symbolic name meaning the local host
@@ -20,6 +21,25 @@ s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 s.bind((HOST, PORT))
 s.listen(10)
 
+class DrawObject:
+	def __init__(self):
+		raise NotImplementedError
+
+class VertexedObject(DrawObject):
+	def __init__(self):
+		raise NotImplementedError
+
+class BezierCurve(VertexedObject):
+	def __init__(self):
+		raise NotImplementedError
+
+class Line(VertexedObject):
+	def __init__(self):
+		raise NotImplementedError
+
+class Pencil(VertexedObject):
+	def __init__(self):
+		raise NotImplementedError
 # Command retrieving function
 def retrieve_command(conn):
 	result = ""
@@ -58,7 +78,7 @@ def clientthread(conn, addr):
 					user[addr] = command[1]
 					for key, u in user.iteritems():
 						if u != this_user_name:
-							commandStack.append({"command": "introduce", "params": addr + " " + this_user_name, "destination": u, 'sent': False})
+							commandStack.append({"command": "introduce", "params": this_user_name, "destination": u, 'sent': False})
 
 			# addObject<space>(Object Marshalling)
 			# return: New Object ID
@@ -66,6 +86,8 @@ def clientthread(conn, addr):
 				if(len(command) == 2):
 					new_object = pickle.loads(eval(command[1]))
 					new_object.id = ''.join(random.choice(string.ascii_uppercase + string.digits + string.ascii_lowercase) for x in range(30))
+					new_object.selected = False
+
 					drawObject.append(new_object)
 					send_command(conn, new_object.id)
 
@@ -78,17 +100,18 @@ def clientthread(conn, addr):
 			elif command[0] == 'modifyObject':
 				if(len(command) == 2):
 					new_object = pickle.loads(eval(command[1]))
-					
+					new_object.selected = False
+
 					# Find that object
-					for obj in drawedObject:
+					for obj in drawObject:
 						if obj.id == new_object.id:
-							drawedObject[drawedObject.index(obj)] = new_object
+							drawObject[drawObject.index(obj)] = new_object
 							break
 
 					for key, u in user.iteritems():
 						if u != this_user_name:
 							commandStack.append({"command": "modifyObject", "params": repr(pickle.dumps(new_object)), "destination": u, 'sent': False})
-					send_command("Y")
+					send_command(conn, "Y")
 			
 			# removeObject<space>(Object Marshalling)
 			# return: "Y"
@@ -97,9 +120,9 @@ def clientthread(conn, addr):
 					new_object = pickle.loads(eval(command[1]))
 					
 					# Find that object
-					for obj in drawedObject:
+					for obj in drawObject:
 						if obj.id == new_object.id:
-							drawedObject.remove(obj)
+							drawObject.remove(obj)
 							break
 
 					for key, u in user.iteritems():
@@ -109,11 +132,13 @@ def clientthread(conn, addr):
 			elif(command[0] == 'pull'):
 				pulled_object = []
 				for obj in commandStack:
-					if obj['destination'] == this_user_name:
+					if obj['destination'] == this_user_name and obj['sent'] == False:
 						pulled_object.append(obj)
 						obj['sent'] = True
 
-				send_command(repr(pickle.loads(pulled_object))
+				send_command(conn, repr(pickle.dumps(pulled_object)))
+				if len(pulled_object) > 0:
+					print repr(pickle.dumps(pulled_object))
 		
 		
 

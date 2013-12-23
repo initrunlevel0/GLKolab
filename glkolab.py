@@ -12,7 +12,7 @@ import pickle
 import socket
 import sys
 import string
-
+import random
 ### GLOBAL VARIABLE
 window = pyglet.window.Window(800,600) 
 
@@ -237,6 +237,20 @@ class Line(VertexedObject):
 objectPushQueue = [] # { "operation": "addObject", "object": "objectMarshall", "pushed": False }
 
 
+def retrieve_command(conn):
+	result = ""
+	byte = conn.recv(1)
+	while byte != '\0':
+		result = result + byte
+		byte = conn.recv(1)
+	
+
+	return result.split()
+
+
+def send_command(conn, command):
+	conn.send(command + '\0')
+
 if(len(sys.argv) < 4):
 	print "./glkolab.py <address> <port> <name>"
 	exit()
@@ -253,19 +267,6 @@ else:
 
 # s --> Socket Connection
 
-def retrieve_command(conn):
-	result = ""
-	byte = conn.recv(1)
-	while byte != '\0':
-		result = result + byte
-		byte = conn.recv(1)
-	
-
-	return result.split()
-
-
-def send_command(conn, command):
-	conn.send(command + '\0')
 
 def network_synchronize(conn):
 	# PUSH
@@ -274,31 +275,32 @@ def network_synchronize(conn):
 			send_command(s, obj['operation'] + " " + obj['object'])
 			result = retrieve_command(s)
 			if(obj['operation'] == 'addObject'):
-				for drawobj in drawedObject:
-					if drawObj.local_id == pickle.loads(eval(obj['object'])).local_id:
-						drawObj.id = result[0]
+				for drawobj in canvasDrawObject:
+					if drawobj.local_id == pickle.loads(eval(obj['object'])).local_id:
+						drawobj.id = result[0]
 						break
 			obj['pushed'] = True
 
 	# PULL
 	send_command(s, 'pull')
-	pulled_object = pickle.loads(eval(retrieve_command(s)[0]))
+	result = retrieve_command(s)[0]
+	pulled_object = pickle.loads(eval(result))
 	for obj in pulled_object:
 		if(obj['command'] == 'addObject'):
-			new_object = pickle.loads(obj['params'])
+			new_object = pickle.loads(eval(obj['params']))
 			new_object.local_id = ''.join(random.choice(string.ascii_uppercase + string.digits + string.ascii_lowercase) for x in range(20))
-			drawedObject.append(new_object) 
+			canvasDrawObject.append(new_object) 
 		elif(obj['command'] == 'modifyObject'):
-			new_object = pickle.loads(obj['params'])
-			for drawobj in drawedObject:
+			new_object = pickle.loads(eval(obj['params']))
+			for drawobj in canvasDrawObject:
 				if(drawobj.id == new_object.id):
-					drawedObject[drawedObject.key(drawobj)] = new_object
+					canvasDrawObject[canvasDrawObject.index(drawobj)] = new_object
 
 		elif(obj['command'] == 'removeObject'):
-			new_object = pickle.loads(obj['params'])
-			for drawobj in drawedObject:
+			new_object = pickle.loads(eval(obj['params']))
+			for drawobj in canvasDrawObject:
 				if(drawobj.id == new_object.id):
-					drawedObject.remove(drawobj)
+					canvasDrawObject.remove(drawobj)
 			pass
 	
 
@@ -349,6 +351,8 @@ def doMovement(dX, dY):
 		for i in range(len(drawedObject.vertex)):
 			drawedObject.vertex[i] = (drawedObject.vertex[i][0] + dX, drawedObject.vertex[i][1] + dY, 0.0)
 
+		network_modify_object(drawedObject)
+
 def doResize(dX, dY, side):
 	if(drawedObject != -1):
 		for i in range(len(drawedObject.vertex)):
@@ -382,11 +386,13 @@ def doResize(dX, dY, side):
 					drawedObject.vertex[i] = (drawedObject.vertex[i][0], drawedObject.vertex[i][1] + dY, 0.0)
 				elif(drawedObject.vertex[i][1] == drawedObject.get_far_top() and drawedObject.vertex[i][0] != drawedObject.get_far_right()):
 					drawedObject.vertex[i] = (drawedObject.vertex[i][0] + dX, drawedObject.vertex[i][1], 0.0)
+		network_modify_object(drawedObject)
 
 def doMoveVertex(index, x, y):
 	if(drawedObject != -1):
 		drawedObject.vertex[index] = (x, y, 0.0)
-			
+		network_modify_object(drawedObject)
+
 def drawBezierCurve(firstX, firstY, isPolygon):
 	global drawedObject, state
 	bc = BezierCurve(firstX, firstY, isPolygon, selected_color)
@@ -395,7 +401,7 @@ def drawBezierCurve(firstX, firstY, isPolygon):
 	bc.selected = True
 	window.flip()
 	state = "Drawing"
-	
+
 def drawPencil(firstX, firstY):
 	global drawedObject, state
 	p = Pencil(firstX, firstY, selected_color)
@@ -507,7 +513,7 @@ def redrawAll():
 
 def drawAll(drawObject):
 	drawObject.draw()
-	print pickle.dumps(drawObject)	
+	#print pickle.dumps(drawObject)	
 
 ### EVENT HANDLER	
 @window.event
@@ -566,11 +572,13 @@ def on_mouse_drag(x, y, dx, dy, button, modifiers):
 		on_mouse_release(x, y, button, modifiers)
 @window.event
 def on_mouse_release(x, y, button, modifiers):
-	global resizing
+	global resizing, drawedObject
 	resizing = False
 	if(selected_tool == "Select"):
 		pass
 	elif(selected_tool == "Pencil"):
+		if "drawedObject" in globals():
+			network_add_object(drawedObject)
 		state = "None"
 		pass
 	elif(selected_tool == "Curve"): 
@@ -590,6 +598,7 @@ def on_mouse_press(x, y, button, modifiers):
 				if(x >= first_point[0] - RANGE_VERTEX and x <= first_point[0] + RANGE_VERTEX and y >= first_point[1] - RANGE_VERTEX and y <= first_point[1] + RANGE_VERTEX):
 					drawedObject.vertex.append(first_point)
 					state = "None"
+					network_add_object(drawedObject)
 					drawedObject.selected = False
 					return
 			if(selected_tool == "Select" or selected_tool == "Vertex"):
@@ -615,6 +624,7 @@ def on_mouse_press(x, y, button, modifiers):
 		elif(button == pyglet.window.mouse.RIGHT):  # End Drawing
 			if(state == "Drawing"):
 				state = "None"
+				network_add_object(drawedObject)
 				drawedObject.selected = False
 	else:
 		# This is toolbox
@@ -674,6 +684,7 @@ def on_key_press(symbol, modifiers):
 			drawedObject.vertex.remove(selected_point)
 @window.event
 def on_draw():
+	network_synchronize(s)
 	redrawAll()
 
 #patch_idle_loop()
