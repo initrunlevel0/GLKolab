@@ -8,6 +8,10 @@
 import ctypes
 import pyglet
 from pyglet.gl import *
+import pickle
+import socket
+import sys
+import string
 
 ### GLOBAL VARIABLE
 window = pyglet.window.Window(800,600) 
@@ -25,6 +29,7 @@ selected_tool = "Select"
 RANGE_VERTEX = 10
 resizing = False
 selected_point = (0,0,0)
+
 
 ### DRAWING CLASS DEFINITION
 class DrawObject:
@@ -124,6 +129,7 @@ class VertexedObject(DrawObject):
 		glEnd()
 		
 	def __init__(self):
+		self.local_id = ''.join(random.choice(string.ascii_uppercase + string.digits + string.ascii_lowercase) for x in range(20))
 		self.vertex = []
 	
 
@@ -227,6 +233,87 @@ class Line(VertexedObject):
 		# Define first curve
 		self.vertex.append((firstX, firstY, 0.0))
 		
+### NETWORK CONNECTION PART
+objectPushQueue = [] # { "operation": "addObject", "object": "objectMarshall", "pushed": False }
+
+
+if(len(sys.argv) < 4):
+	print "./glkolab.py <address> <port> <name>"
+	exit()
+else:
+	HOST = sys.argv[1]
+	PORT = int(sys.argv[2])
+	my_name = sys.argv[3]
+
+	s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+	s.connect((HOST,PORT))
+
+	# Introduce Myself
+	send_command(s, "introduce " + my_name)
+
+# s --> Socket Connection
+
+def retrieve_command(conn):
+	result = ""
+	byte = conn.recv(1)
+	while byte != '\0':
+		result = result + byte
+		byte = conn.recv(1)
+	
+
+	return result.split()
+
+
+def send_command(conn, command):
+	conn.send(command + '\0')
+
+def network_synchronize(conn):
+	# PUSH
+	for obj in objectPushQueue:
+		if(obj['pushed'] == False):
+			send_command(s, obj['operation'] + " " + obj['object'])
+			result = retrieve_command(s)
+			if(obj['operation'] == 'addObject'):
+				for drawobj in drawedObject:
+					if drawObj.local_id == pickle.loads(eval(obj['object'])).local_id:
+						drawObj.id = result[0]
+						break
+			obj['pushed'] = True
+
+	# PULL
+	send_command(s, 'pull')
+	pulled_object = pickle.loads(eval(retrieve_command(s)[0]))
+	for obj in pulled_object:
+		if(obj['command'] == 'addObject'):
+			new_object = pickle.loads(obj['params'])
+			new_object.local_id = ''.join(random.choice(string.ascii_uppercase + string.digits + string.ascii_lowercase) for x in range(20))
+			drawedObject.append(new_object) 
+		elif(obj['command'] == 'modifyObject'):
+			new_object = pickle.loads(obj['params'])
+			for drawobj in drawedObject:
+				if(drawobj.id == new_object.id):
+					drawedObject[drawedObject.key(drawobj)] = new_object
+
+		elif(obj['command'] == 'removeObject'):
+			new_object = pickle.loads(obj['params'])
+			for drawobj in drawedObject:
+				if(drawobj.id == new_object.id):
+					drawedObject.remove(drawobj)
+			pass
+	
+
+
+def network_add_object(obj):
+	objectPushQueue.append({'operation': 'addObject', 'object': repr(pickle.dumps(obj)), 'pushed': False})
+
+def network_modify_object(obj):
+	if(hasattr(obj, 'id')):
+		objectPushQueue.append({'operation': 'modifyObject', 'object': repr(pickle.dumps(obj)), 'pushed': False})
+
+def network_remove_object(obj):
+	if(hasattr(obj, 'id')):
+		objectPushQueue.append({'remove': 'removeObject', 'object': repr(pickle.loads(obj)), 'pushed': False})
+
 ### DO DRAWING PRIMITIVE
 def getSelectedObject(X, Y):
 	global state, drawedObject, selected_point
@@ -420,7 +507,7 @@ def redrawAll():
 
 def drawAll(drawObject):
 	drawObject.draw()
-	
+	print pickle.dumps(drawObject)	
 
 ### EVENT HANDLER	
 @window.event
@@ -592,5 +679,6 @@ def on_draw():
 #patch_idle_loop()
 glClearColor(1.0, 1.0, 1.0, 1.0)
 initToolLabel()
+
 pyglet.app.run()
 
