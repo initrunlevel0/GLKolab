@@ -265,6 +265,10 @@ else:
 	# Introduce Myself
 	send_command(s, "introduce " + my_name)
 
+	# Request All Object
+	send_command(s, "requestAllObject")
+	canvasDrawObject = canvasDrawObject + pickle.loads(eval(retrieve_command(s)[0]))
+
 # s --> Socket Connection
 
 

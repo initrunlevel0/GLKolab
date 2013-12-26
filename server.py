@@ -140,7 +140,8 @@ def clientthread(conn, addr):
 				if len(pulled_object) > 0:
 					print repr(pickle.dumps(pulled_object))
 		
-		
+			elif(command[0] == 'requestAllObject'):
+				send_command(conn, repr(pickle.dumps(drawObject)))
 
 # Infinite loop to retrieve connection from client
 while True:
