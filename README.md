@@ -13,5 +13,5 @@ Basic feature :
 
 ## How to Use
 
-Running server : `./server.py <port-number>`
-Running client : `./glkolab.py <server-ip> <server-port-number> <some-random-name>`
+  * Running server : `./server.py <port-number>`
+  * Running client : `./glkolab.py <server-ip> <server-port-number> <some-random-name>`
