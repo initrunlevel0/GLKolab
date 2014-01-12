@@ -17,7 +17,7 @@ import ttk
 
 # UI to ask for address, port and name
 master = Tkinter.Tk()
-master.geometry('661x62+592+561')
+master.geometry('661x62+200+200')
 nomorIP = Tkinter.StringVar()
 nomorPort = Tkinter.StringVar()
 nama = Tkinter.StringVar()
