@@ -696,7 +696,8 @@ def on_mouse_release(x, y, button, modifiers):
 		pass
 	elif(selected_tool == "Pencil"):
 		if "drawedObject" in globals():
-			network_add_object(drawedObject)
+			if isinstance(drawedObject, Pencil):
+				network_add_object(drawedObject)
 		state = "None"
 		pass
 	elif(selected_tool == "Curve"): 
