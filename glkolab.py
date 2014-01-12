@@ -12,55 +12,65 @@ import sys
 import string
 import random
 import copy
-import Tkinter
-import ttk
-
-# UI to ask for address, port and name
-master = Tkinter.Tk()
-master.geometry('661x62+200+200')
-nomorIP = Tkinter.StringVar()
-nomorPort = Tkinter.StringVar()
-nama = Tkinter.StringVar()
-
-lblPesan = ttk.Label (master)
-lblPesan.place(relx=0.03,rely=0.16,height=20,width=578)
-lblPesan.configure(borderwidth="2")
-lblPesan.configure(text='''Masukkan nomor IP, Port serta nama identitas (sembarang tapi unik) untuk masuk ke GLKolab''')
-
-entIP = ttk.Entry (master, textvariable=nomorIP)
-entIP.place(relx=0.03,rely=0.48,relheight=0.32,relwidth=0.31)
-entIP.configure(background="white")
-entIP.configure(cursor="fleur")
-entIP.configure(font="TkFixedFont")
-entIP.configure(width=206)
-
-entPort = ttk.Entry (master, textvariable=nomorPort)
-entPort.place(relx=0.38,rely=0.48,relheight=0.32,relwidth=0.13)
-entPort.configure(background="white")
-entPort.configure(font="TkFixedFont")
-entPort.configure(width=86)
-
-entNama = ttk.Entry (master, textvariable=nama)
-entNama.place(relx=0.56,rely=0.48,relheight=0.32,relwidth=0.27)
-entNama.configure(background="white")
-entNama.configure(font="TkFixedFont")
-entNama.configure(width=176)
-
-def continue_gui():
-	master.destroy()
-
-btnJalankan = ttk.Button (master, command=continue_gui)
-btnJalankan.place(relx=0.83,rely=0.48,height=26,width=67)
-btnJalankan.configure(text='''Jalankan''')
-btnJalankan.configure(width=67)
-master.mainloop()
-
 import pyglet
 from pyglet.gl import *
+import imp
+
+# UI to ask for address, port and name
+if(len(sys.argv) != 4):
+	import Tkinter
+	import ttk
+	master = Tkinter.Tk()
+	master.title("GLKolab Client")
+	master.geometry('661x62+200+200')
+	nomorIP = Tkinter.StringVar()
+	nomorPort = Tkinter.StringVar()
+	nama = Tkinter.StringVar()
+
+	lblPesan = ttk.Label (master)
+	lblPesan.place(relx=0.03,rely=0.16,height=20,width=578)
+	lblPesan.configure(borderwidth="2")
+	lblPesan.configure(text='''Masukkan nomor IP, Port serta nama identitas (sembarang tapi unik) untuk masuk ke GLKolab''')
+
+	entIP = ttk.Entry (master, textvariable=nomorIP)
+	entIP.place(relx=0.03,rely=0.48,relheight=0.32,relwidth=0.31)
+	entIP.configure(background="white")
+	entIP.configure(cursor="fleur")
+	entIP.configure(font="TkFixedFont")
+	entIP.configure(width=206)
+
+	entPort = ttk.Entry (master, textvariable=nomorPort)
+	entPort.place(relx=0.38,rely=0.48,relheight=0.32,relwidth=0.13)
+	entPort.configure(background="white")
+	entPort.configure(font="TkFixedFont")
+	entPort.configure(width=86)
+
+	entNama = ttk.Entry (master, textvariable=nama)
+	entNama.place(relx=0.56,rely=0.48,relheight=0.32,relwidth=0.27)
+	entNama.configure(background="white")
+	entNama.configure(font="TkFixedFont")
+	entNama.configure(width=176)
+
+	def continue_gui():
+		master.destroy()
+
+	btnJalankan = ttk.Button (master, command=continue_gui)
+	btnJalankan.place(relx=0.83,rely=0.48,height=26,width=67)
+	btnJalankan.configure(text='''Jalankan''')
+	btnJalankan.configure(width=67)
+	master.mainloop()
+	nomorIP = nomorIP.get()
+	nomorPort = nomorPort.get()
+	nama = nama.get()
+else:
+	nomorIP = sys.argv[1]
+	nomorPort = sys.argv[2]
+	nama = sys.argv[3]
+
 
 ### GLOBAL VARIABLE
 window = pyglet.window.Window(800,600) 
-
+window.set_caption("GLKolab")
 # Text Label Definition
 logoLabel = pyglet.text.HTMLLabel('<font size=5 face="Helvetica" color="white"><strong>GL</strong>Kolab</font>', x=100, y=580, anchor_x='center', anchor_y='center')
 cldis = pyglet.clock.ClockDisplay()
@@ -345,9 +355,9 @@ def send_command(conn, command):
 	conn.send(command + '\0')
 
 
-HOST = nomorIP.get()
-PORT = int(nomorPort.get())
-my_name = nama.get()
+HOST = nomorIP
+PORT = int(nomorPort)
+my_name = nama
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 s.connect((HOST,PORT))
 
