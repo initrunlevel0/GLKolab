@@ -9,20 +9,46 @@ import random
 import pickle
 import string
 from thread import *
+from Tkinter import *
+import ttk
 
 # Global Variable
 user = {}
 commandStack = []
 drawObject = []
 
-# Handle multi connection
-HOST = ''                 # Symbolic name meaning the local host
-PORT = int(sys.argv[1]) 
-s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-s.bind((HOST, PORT))
-s.listen(10)
+# Start a GUI
+root = Tk()
+root.title('GLKolab Server')
+
+root.geometry('565x94+250+143')
+
+lblMasukanNomorPort = ttk.Label(root)
+lblMasukanNomorPort.place(relx=0.04, rely=0.11, height=20, width=312)
+lblMasukanNomorPort.configure(borderwidth="2")
+lblMasukanNomorPort.configure(text='''Masukkan nomor port untuk menjalankan GLKolab''')
+
+nomorPort = StringVar()
+txtNomorPort = ttk.Entry(root, textvariable=nomorPort)
+txtNomorPort.place(relx=0.04,rely=0.32,relheight=0.28,relwidth=0.7)
+txtNomorPort.configure(background="white")
+txtNomorPort.configure(font="TkTextFont")
+txtNomorPort.configure(width=396)
+
+def continue_gui():
+	root.destroy()
+
+btnJalankanServer = Button (root, command=continue_gui)
+btnJalankanServer.place(relx=0.76,rely=0.32,height=26,width=120)
+btnJalankanServer.configure(activebackground="#f4bcb2")
+btnJalankanServer.configure(text='''Jalankan Server''')
+
+root.mainloop()
 
 class DrawObject:
+	def __init__(self):
+		raise NotImplementedError
+class Text(DrawObject):
 	def __init__(self):
 		raise NotImplementedError
 
@@ -129,7 +155,7 @@ def clientthread(conn, addr):
 					for key, u in user.iteritems():
 						if u != this_user_name:
 							commandStack.append({"command": "removeObject", "params": repr(pickle.dumps(new_object)), "destination": u, 'sent': False})
-					send_command("Y")
+					send_command(conn,"Y")
 			elif(command[0] == 'pull'):
 				pulled_object = []
 				for obj in commandStack:
@@ -144,6 +170,14 @@ def clientthread(conn, addr):
 			elif(command[0] == 'requestAllObject'):
 				send_command(conn, repr(pickle.dumps(drawObject)))
 
+
+# Server Starting
+HOST = ''                 # Symbolic name meaning the local host
+PORT = int(nomorPort.get()) 
+s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+s.bind((HOST, PORT))
+
+s.listen(10)
 # Infinite loop to retrieve connection from client
 while True:
 	conn, addr = s.accept()

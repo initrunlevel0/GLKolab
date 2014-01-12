@@ -6,13 +6,58 @@
 
 ### MAIN LIBRARY IMPORT
 import ctypes
-import pyglet
-from pyglet.gl import *
 import pickle
 import socket
 import sys
 import string
 import random
+import copy
+import Tkinter
+import ttk
+
+# UI to ask for address, port and name
+master = Tkinter.Tk()
+master.geometry('661x62+592+561')
+nomorIP = Tkinter.StringVar()
+nomorPort = Tkinter.StringVar()
+nama = Tkinter.StringVar()
+
+lblPesan = ttk.Label (master)
+lblPesan.place(relx=0.03,rely=0.16,height=20,width=578)
+lblPesan.configure(borderwidth="2")
+lblPesan.configure(text='''Masukkan nomor IP, Port serta nama identitas (sembarang tapi unik) untuk masuk ke GLKolab''')
+
+entIP = ttk.Entry (master, textvariable=nomorIP)
+entIP.place(relx=0.03,rely=0.48,relheight=0.32,relwidth=0.31)
+entIP.configure(background="white")
+entIP.configure(cursor="fleur")
+entIP.configure(font="TkFixedFont")
+entIP.configure(width=206)
+
+entPort = ttk.Entry (master, textvariable=nomorPort)
+entPort.place(relx=0.38,rely=0.48,relheight=0.32,relwidth=0.13)
+entPort.configure(background="white")
+entPort.configure(font="TkFixedFont")
+entPort.configure(width=86)
+
+entNama = ttk.Entry (master, textvariable=nama)
+entNama.place(relx=0.56,rely=0.48,relheight=0.32,relwidth=0.27)
+entNama.configure(background="white")
+entNama.configure(font="TkFixedFont")
+entNama.configure(width=176)
+
+def continue_gui():
+	master.destroy()
+
+btnJalankan = ttk.Button (master, command=continue_gui)
+btnJalankan.place(relx=0.83,rely=0.48,height=26,width=67)
+btnJalankan.configure(text='''Jalankan''')
+btnJalankan.configure(width=67)
+master.mainloop()
+
+import pyglet
+from pyglet.gl import *
+
 ### GLOBAL VARIABLE
 window = pyglet.window.Window(800,600) 
 
@@ -40,11 +85,59 @@ class DrawObject:
 	def __init__(self):
 		raise NotImplementedError()
 	
+class Text(DrawObject):
+	def draw_selected(self):
+		# Draw rectangle of selection
+		glLineWidth(1.0)
+		glColor3f(0.0,0.0, 0.0)
+		glBegin(GL_LINE_LOOP)
+		glVertex3f(self.get_far_left(), self.get_far_top(), 0.0)
+		glVertex3f(self.get_far_right(), self.get_far_top(), 0.0)
+		glVertex3f(self.get_far_right(), self.get_far_bottom(), 0.0)
+		glVertex3f(self.get_far_left(), self.get_far_bottom(), 0.0)
+		glEnd()
+
+	def draw(self):
+		self.text_object.draw()
+		if state == "None":
+			pass
+		elif (self.selected == True):
+			self.draw_selected()
+		glFlush()
+
+	def get_far_left(self):
+		return self.text_object.x
+
+	def get_far_right(self):
+		return self.text_object.x + self.text_object.content_width
+
+	def get_far_top(self):
+		return self.text_object.y
+
+	def get_far_bottom(self):
+		return self.text_object.y - self.text_object.content_height
+	def generate_html_text(self):
+		self.text_object = pyglet.text.HTMLLabel('<font size=3 face=\'Helvetica\' color=\'black\'>' + self.text + '</font>', x=self.position[0], y=self.position[1], anchor_x='left', anchor_y='top')
+
+	def change_position(self, position):
+		self.position = position
+		self.generate_html_text()
+
+	def add_new_character(self, character):
+		self.text = self.text + character
+		self.generate_html_text()
+
+	def __init__(self, position, text):
+		self.position = position
+		self.text = text
+		self.selected = False
+		self.generate_html_text()
+
 class VertexedObject(DrawObject):
 	
 	def draw(self):
 		raise NotImplementedError()
-	
+		
 	def get_far_left(self):
 		a = float('inf')
 		for v in self.vertex:
@@ -251,23 +344,19 @@ def retrieve_command(conn):
 def send_command(conn, command):
 	conn.send(command + '\0')
 
-if(len(sys.argv) < 4):
-	print "./glkolab.py <address> <port> <name>"
-	exit()
-else:
-	HOST = sys.argv[1]
-	PORT = int(sys.argv[2])
-	my_name = sys.argv[3]
 
-	s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-	s.connect((HOST,PORT))
+HOST = nomorIP.get()
+PORT = int(nomorPort.get())
+my_name = nama.get()
+s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+s.connect((HOST,PORT))
 
-	# Introduce Myself
-	send_command(s, "introduce " + my_name)
+# Introduce Myself
+send_command(s, "introduce " + my_name)
 
-	# Request All Object
-	send_command(s, "requestAllObject")
-	canvasDrawObject = canvasDrawObject + pickle.loads(eval(retrieve_command(s)[0]))
+# Request All Object
+send_command(s, "requestAllObject")
+canvasDrawObject = canvasDrawObject + pickle.loads(eval(retrieve_command(s)[0]))
 
 # s --> Socket Connection
 
@@ -310,6 +399,12 @@ def network_synchronize(conn):
 
 
 def network_add_object(obj):
+	# Special treatment for Text Object
+	#if(isinstance(obj, Text)):
+	#	obj = copy.copy(obj)
+	#	obj.text_object = None
+	#	print "Lalalala" + str(obj)
+
 	objectPushQueue.append({'operation': 'addObject', 'object': repr(pickle.dumps(obj)), 'pushed': False})
 
 def network_modify_object(obj):
@@ -318,7 +413,7 @@ def network_modify_object(obj):
 
 def network_remove_object(obj):
 	if(hasattr(obj, 'id')):
-		objectPushQueue.append({'remove': 'removeObject', 'object': repr(pickle.loads(obj)), 'pushed': False})
+		objectPushQueue.append({'operation': 'removeObject', 'object': repr(pickle.dumps(obj)), 'pushed': False})
 
 ### DO DRAWING PRIMITIVE
 def getSelectedObject(X, Y):
@@ -425,6 +520,15 @@ def drawLine(firstX, firstY, isPolygon):
 	window.flip()
 	state = "Drawing"
 	
+def drawText(firstX, firstY):
+	global drawedObject, state
+	t = Text((firstX, firstY), "")
+	canvasDrawObject.append(t)
+	drawedObject = t
+	t.selected = True
+	window.flip()
+	state = "Drawing"
+
 ### UI DESIGN
 
 def drawButton(x, y, text, selected):
@@ -623,6 +727,9 @@ def on_mouse_press(x, y, button, modifiers):
 							
 				if(state == "Drawing"):
 					drawedObject.vertex.append((x, y, 0.0))
+			elif(selected_tool == "Text"):
+				if(state == "None"):
+					drawText(x, y)
 			
 
 		elif(button == pyglet.window.mouse.RIGHT):  # End Drawing
@@ -684,8 +791,17 @@ def on_key_press(symbol, modifiers):
 		# Delete Object
 		if(selected_tool == "Select" and drawedObject != -1):
 			canvasDrawObject.remove(drawedObject)
+			network_remove_object(drawedObject)
 		elif(selected_tool == "Vertex" and drawedObject != -1 and selected_point != (0,0,0)):
 			drawedObject.vertex.remove(selected_point)
+			network_modify_object(drawedObject)
+	elif((selected_tool == "Text" and state == "Drawing") or isinstance(drawedObject, Text) and drawedObject.selected == True):
+		if(drawedObject != -1):
+			if(symbol != pyglet.window.key.ENTER):
+				drawedObject.add_new_character(pyglet.window.key.symbol_string(symbol))
+			else:
+				#network_add_object(drawedObject)
+				doUnselectObject()
 @window.event
 def on_draw():
 	network_synchronize(s)
